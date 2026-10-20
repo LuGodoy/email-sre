@@ -29,7 +29,7 @@ def _cliente() -> Groq:
 def gerar_post(autor: str, canal: str, mensagem: str) -> dict:
     """Gera um post LinkedIn a partir de uma mensagem positiva e salva em posts_pendentes.json."""
     resposta = _cliente().chat.completions.create(
-        model="qwen/qwen3-8b",
+        model="qwen/qwen3.8-27b",
         messages=[
             {"role": "system", "content": PROMPT_SISTEMA},
             {"role": "user", "content": mensagem},

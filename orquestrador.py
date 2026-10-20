@@ -1,6 +1,5 @@
 import os
 import certifi
-import json
 import discord
 from dotenv import load_dotenv
 from groq import Groq
@@ -11,24 +10,12 @@ os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 
 load_dotenv()
 
-# Importa a função de e-mail que criamos anteriormente
-from envio_email import processar_e_enviar_alerta_sre
+# Importa a função de e-mail do seu arquivo envio_email_2.py
+from envio_email_2 import processar_e_enviar_alerta_sre
 
 # Inicializa o cliente Groq e o Token do Discord
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
-ALERTAS_FILE = "alertas_enviados.json"
-
-def carregar_alertas():
-    if os.path.exists(ALERTAS_FILE):
-        with open(ALERTAS_FILE, "r") as f:
-            return set(json.load(f))
-    return set()
-
-def salvar_alertas(ids: set):
-    with open(ALERTAS_FILE, "w") as f:
-        json.dump(list(ids), f)
 
 def analisar_sentimento_groq(mensagem: str) -> str:
     """Analisa o sentimento de uma mensagem usando a API da Groq."""
@@ -44,7 +31,7 @@ def analisar_sentimento_groq(mensagem: str) -> str:
 
     try:
         chat_completion = groq_client.chat.completions.create(
-            model="qwen/qwen3.8-27b", # Modelo robusto e atualizado na Groq
+            model="qwen/qwen3.8-27b",
             messages=[
                 {"role": "system", "content": prompt_sistema},
                 {"role": "user", "content": mensagem},
@@ -65,88 +52,41 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    global mensagens_alertadas
-    mensagens_alertadas = carregar_alertas()
-    print(f'Bot conectado como: {client.user}\n')
-    
-    if not client.guilds:
-        print("O bot não está em nenhum servidor.")
-        await client.close()
+    print(f'🤖 Bot conectado e a escutar em tempo real como: {client.user}\n')
+
+@client.event
+async def on_message(mensagem):
+    # Ignora mensagens enviadas pelo próprio bot ou mensagens vazias
+    if mensagem.author.bot or not mensagem.content.strip():
         return
 
-    guild = client.guilds[0]
-    print(f"==========================================")
-    print(f" Analisando Servidor: {guild.name}")
-    print(f"==========================================\n")
+    print(f"📩 Nova mensagem recebida em #{mensagem.channel.name} de [{mensagem.author.display_name}]: {mensagem.content}")
 
-    novas_negativas = []
+    # Analisa o sentimento com a Groq
+    resposta_groq = analisar_sentimento_groq(mensagem.content)
+    print(f"  {resposta_groq}")
+    print("-" * 40)
 
-    for canal in guild.text_channels:
-        print(f"------------------------------------------")
-        print(f"📖 Canal: #{canal.name}")
-        print(f"------------------------------------------")
+    # Extrai o sentimento
+    sentimento_texto = "NEU"
+    if "Negativo" in resposta_groq:
+        sentimento_texto = "NEG"
+    elif "Positivo" in resposta_groq:
+        sentimento_texto = "POS"
+
+    # Se a mensagem for classificada como NEGATIVA, dispara o e-mail de imediato
+    if sentimento_texto == "NEG":
+        dados_alerta = [{
+            "timestamp": mensagem.created_at.isoformat(),
+            "author": mensagem.author.display_name,
+            "content": mensagem.content,
+            "sentimento": sentimento_texto,
+            "canal": f"#{mensagem.channel.name}",
+            "link": f"https://discord.com/channels/{mensagem.guild.id}/{mensagem.channel.id}/{mensagem.id}"
+        }]
         
-        contador = {"POS": 0, "NEU": 0, "NEG": 0}
-        total_mensagens = 0
-
-        try:
-            async for mensagem in canal.history(limit=50):
-                if mensagem.author.bot or not mensagem.content.strip():
-                    continue
-                
-                total_mensagens += 1
-                
-                # Obtém a resposta estruturada da Groq
-                resposta_groq = analisar_sentimento_groq(mensagem.content)
-                
-                # Extrai o sentimento de forma simples da resposta da IA
-                sentimento_texto = "NEU"
-                if "Negativo" in resposta_groq:
-                    sentimento_texto = "NEG"
-                    contador["NEG"] += 1
-                elif "Positivo" in resposta_groq:
-                    sentimento_texto = "POS"
-                    contador["POS"] += 1
-                else:
-                    contador["NEU"] += 1
-
-                data_return = { 
-                    "timestamp": mensagem.created_at.isoformat(),
-                    "author": mensagem.author.display_name,
-                    "content": mensagem.content,
-                    "sentimento": sentimento_texto,
-                    "link": f"https://discord.com/channels/{guild.id}/{canal.id}/{mensagem.id}"
-                }
-                
-                print(f"  [{mensagem.author.display_name}]: {mensagem.content}")
-                print(f"  {resposta_groq}")
-                print("-" * 40)
-
-                # Acumula mensagens negativas ainda não alertadas
-                if sentimento_texto == "NEG" and str(mensagem.id) not in mensagens_alertadas:
-                    data_return["canal"] = f"#{canal.name}"
-                    novas_negativas.append(data_return)
-                    mensagens_alertadas.add(str(mensagem.id))
-
-            if total_mensagens == 0:
-                print("  (Nenhuma mensagem encontrada neste canal)")
-            else:
-                print(f"\n  📊 Resumo do #{canal.name}: {total_mensagens} mensagens")
-                print(f"  🟢 Positivas: {contador['POS']} | ⚪ Neutras: {contador['NEU']} | 🔴 Negativas: {contador['NEG']}")
-            
-            print("\n")
-
-        except discord.errors.Forbidden:
-            print(f"  ⚠️ Sem permissão para ler as mensagens do canal #{canal.name}.\n")
-        except Exception as e:
-            print(f"  ❌ Erro ao ler o canal #{canal.name}: {e}\n")
-
-    # Envia um único e-mail com todas as mensagens negativas novas
-    if novas_negativas:
-        salvar_alertas(mensagens_alertadas)
-        processar_e_enviar_alerta_sre(novas_negativas)
-
-    await client.close()
+        # Chama a função que envia para o Mailtrap[cite: 4]
+        processar_e_enviar_alerta_sre(dados_alerta)
 
 if __name__ == "__main__":
     client.run(DISCORD_TOKEN)

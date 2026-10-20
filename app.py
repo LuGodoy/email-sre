@@ -26,21 +26,28 @@ def aprovar(post_id: str) -> None:
     aprovados = carregar(POSTS_APROVADOS)
 
     post = next((p for p in pendentes if p["id"] == post_id), None)
-    if post:
-        post["status"] = "aprovado"
-        aprovados.append(post)
-        salvar(POSTS_APROVADOS, aprovados)
-        salvar(POSTS_PENDENTES, [p for p in pendentes if p["id"] != post_id])
-        st.rerun()
+    if not post:
+        return
+
+    post["status"] = "aprovado"
+    aprovados.append(post)
+    novos_pendentes = [p for p in pendentes if p["id"] != post_id]
+
+    salvar(POSTS_APROVADOS, aprovados)
+    salvar(POSTS_PENDENTES, novos_pendentes)
+    st.session_state["rerun"] = True
 
 
 def reprovar(post_id: str) -> None:
     pendentes = carregar(POSTS_PENDENTES)
     salvar(POSTS_PENDENTES, [p for p in pendentes if p["id"] != post_id])
-    st.rerun()
+    st.session_state["rerun"] = True
 
 
 st.title("🛡️ Painel de Moderação de Posts")
+
+if st.session_state.pop("rerun", False):
+    st.rerun()
 
 pendentes = carregar(POSTS_PENDENTES)
 

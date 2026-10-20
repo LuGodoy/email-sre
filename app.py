@@ -3,7 +3,7 @@ import os
 import streamlit as st
 
 POSTS_PENDENTES = os.path.join(os.path.dirname(__file__), "data", "posts_pendentes.json")
-POSTS_APROVADOS = os.path.join(os.path.dirname(__file__), "data", "posts_aprovados.json")
+POSTS_APROVADOS = os.path.join(os.path.dirname(__file__), "data", "posts_moderados.json")
 
 
 def carregar(caminho: str) -> list:

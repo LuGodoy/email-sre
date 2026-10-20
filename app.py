@@ -40,7 +40,14 @@ def aprovar(post_id: str) -> None:
 
 def reprovar(post_id: str) -> None:
     pendentes = carregar(POSTS_PENDENTES)
+    post = next((p for p in pendentes if p["id"] == post_id), None)
+    if not post:
+        return
+    post["status"] = "reprovado"
     salvar(POSTS_PENDENTES, [p for p in pendentes if p["id"] != post_id])
+    aprovados = carregar(POSTS_APROVADOS)
+    aprovados.append(post)
+    salvar(POSTS_APROVADOS, aprovados)
     st.session_state["rerun"] = True
 
 
@@ -48,6 +55,11 @@ st.title("🛡️ Painel de Moderação de Posts")
 
 if st.session_state.pop("rerun", False):
     st.rerun()
+
+col_titulo, col_btn = st.columns([4, 1])
+with col_btn:
+    if st.button("🔄 Atualizar"):
+        st.rerun()
 
 pendentes = carregar(POSTS_PENDENTES)
 
@@ -73,3 +85,19 @@ else:
             with col2:
                 if st.button("❌ Reprovar", key=f"rep_{post['id']}"):
                     reprovar(post["id"])
+
+# Histórico de posts moderados
+historico = carregar(POSTS_APROVADOS)
+if historico:
+    st.divider()
+    st.subheader(f"Histórico de Moderação ({len(historico)})")
+    for post in reversed(historico):
+        status = post.get("status", "")
+        icone = "✅" if status == "aprovado" else "❌"
+        label = "Aprovado" if status == "aprovado" else "Reprovado"
+        cor = "green" if status == "aprovado" else "red"
+        with st.expander(f"{icone} {post.get('titulo', 'Sem título')} — :{cor}[{label}]"):
+            st.caption(f"✍️ {post.get('autor')} · {post.get('canal')} · {post.get('criado_em', '')[:19].replace('T', ' ')} UTC")
+            st.write(post.get("post", ""))
+            with st.expander("💬 Mensagem original"):
+                st.write(post.get("mensagem_original", ""))

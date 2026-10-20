@@ -12,6 +12,7 @@ load_dotenv()
 
 # Importa a função de e-mail do seu arquivo envio_email.py
 from envio_email import processar_e_enviar_alerta_sre
+from llm import gerar_post
 
 # Inicializa o cliente Groq e o Token do Discord
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -84,9 +85,19 @@ async def on_message(mensagem):
             "canal": f"#{mensagem.channel.name}",
             "link": f"https://discord.com/channels/{mensagem.guild.id}/{mensagem.channel.id}/{mensagem.id}"
         }]
-        
-        # Chama a função que envia para o Mailtrap[cite: 4]
         processar_e_enviar_alerta_sre(dados_alerta)
+
+    # Se a mensagem for POSITIVA, gera post para aprovação
+    elif sentimento_texto == "POS":
+        try:
+            gerar_post(
+                autor=mensagem.author.display_name,
+                canal=f"#{mensagem.channel.name}",
+                mensagem=mensagem.content,
+            )
+            print(f"  ✅ [POST GERADO] Post criado para aprovação a partir da mensagem de {mensagem.author.display_name}")
+        except Exception as e:
+            print(f"  ⚠️ Falha ao gerar post: {e}")
 
 if __name__ == "__main__":
     client.run(DISCORD_TOKEN)

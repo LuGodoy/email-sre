@@ -10,8 +10,8 @@ os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 
 load_dotenv()
 
-# Importa a função de e-mail do seu arquivo envio_email_2.py
-from envio_email_2 import processar_e_enviar_alerta_sre
+# Importa a função de e-mail do seu arquivo envio_email.py
+from envio_email import processar_e_enviar_alerta_sre
 
 # Inicializa o cliente Groq e o Token do Discord
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))

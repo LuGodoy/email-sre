@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-POSTS_PENDENTES = os.path.join(os.path.dirname(__file__), "..", "data", "posts_pendentes.json")
+POSTS_PENDENTES = os.path.join(os.path.dirname(__file__), "..", "data", "pending_posts.json")
 
 PROMPT_SISTEMA = (
     "Você é um redator especialista em comunicação corporativa. "

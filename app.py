@@ -1,9 +1,36 @@
 import json
 import os
+import sys
+import threading
+import requests
 import streamlit as st
 
-POSTS_PENDENTES = os.path.join(os.path.dirname(__file__), "data", "posts_pendentes.json")
-POSTS_APROVADOS = os.path.join(os.path.dirname(__file__), "data", "posts_moderados.json")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+from server import app as flask_app, publicar_no_instagram
+
+POSTS_PENDENTES = os.path.join(os.path.dirname(__file__), "data", "pending_posts.json")
+POSTS_APROVADOS = os.path.join(os.path.dirname(__file__), "data", "moderated_posts.json")
+
+_flask_iniciado = False
+
+def _iniciar_servidor_flask():
+    global _flask_iniciado
+    if not _flask_iniciado:
+        _flask_iniciado = True
+        threading.Thread(
+            target=lambda: flask_app.run(host="127.0.0.1", port=5001, debug=False, use_reloader=False),
+            daemon=True
+        ).start()
+
+def _obter_url_ngrok():
+    try:
+        response = requests.get("http://localhost:4040/api/tunnels", timeout=5)
+        for tunel in response.json().get("tunnels", []):
+            if tunel.get("proto") == "https":
+                return tunel.get("public_url")
+    except Exception:
+        pass
+    return None
 
 
 def carregar(caminho: str) -> list:
@@ -35,6 +62,14 @@ def aprovar(post_id: str) -> None:
 
     salvar(POSTS_APROVADOS, aprovados)
     salvar(POSTS_PENDENTES, novos_pendentes)
+
+    _iniciar_servidor_flask()
+    ngrok_url = _obter_url_ngrok()
+    if ngrok_url:
+        publicar_no_instagram(ngrok_url)
+    else:
+        st.warning("⚠️ ngrok não detectado. Inicie o ngrok para publicar no Instagram.")
+
     st.session_state["rerun"] = True
 
 

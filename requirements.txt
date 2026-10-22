@@ -1,3 +1,9 @@
 streamlit
-oci
 python-dotenv
+requests
+flask
+pyngrok
+mailtrap
+groq
+discord.py
+certifi

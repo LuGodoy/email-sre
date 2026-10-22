@@ -10,8 +10,7 @@ os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 
 load_dotenv()
 
-# Importa a função de e-mail do seu arquivo envio_email.py
-from envio_email import processar_e_enviar_alerta_sre
+from email_sender import processar_e_enviar_alerta_sre
 from llm import gerar_post
 
 # Inicializa o cliente Groq e o Token do Discord
@@ -87,7 +86,7 @@ async def on_message(mensagem):
         }]
         processar_e_enviar_alerta_sre(dados_alerta)
 
-    # Se a mensagem for POSITIVA, gera post para aprovação
+    # Se a mensagem for POSITIVA, gera post e aguarda moderação no painel
     elif sentimento_texto == "POS":
         try:
             gerar_post(

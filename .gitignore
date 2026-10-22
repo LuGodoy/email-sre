@@ -6,4 +6,4 @@ __pycache__/
 data/*.json
 info.md
 Describe.md
-test_env.py
+test_env.py__pycache__/
